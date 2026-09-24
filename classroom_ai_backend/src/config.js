@@ -18,9 +18,18 @@ export function loadConfig() {
     recognitionConfirmFrames: 3,
     maxImageBytes: 5 * 1024 * 1024,
   };
-  if (!config.databaseUrl || !config.adminPassword || (process.env.NODE_ENV !== 'development' && config.adminPassword.length < 12) || !config.sessionSecret || config.sessionSecret.length < 32 || !config.recognitionKey) {
-    throw new Error('Set DATABASE_URL, ADMIN_PASSWORD (12+ chars outside local development), SESSION_SECRET (32+ chars), RECOGNITION_API_KEY in .env');
+  const issues = [];
+  if (!config.databaseUrl?.trim()) issues.push('DATABASE_URL is missing');
+  if (!config.adminPassword?.trim()) issues.push('ADMIN_PASSWORD is missing');
+  else if (process.env.NODE_ENV !== 'development' && config.adminPassword.length < 12) issues.push('ADMIN_PASSWORD requires at least 12 characters');
+  if (!config.sessionSecret?.trim()) issues.push('SESSION_SECRET is missing');
+  else if (config.sessionSecret.length < 32) issues.push('SESSION_SECRET requires at least 32 characters');
+  if (!config.recognitionKey?.trim()) issues.push('RECOGNITION_API_KEY is missing');
+  if (config.storageProvider === 'supabase') {
+    if (!config.supabaseUrl?.trim()) issues.push('SUPABASE_URL is missing');
+    if (!config.supabaseKey?.trim()) issues.push('SUPABASE_SERVICE_ROLE_KEY is missing');
   }
+  if (issues.length) throw new Error('Invalid server environment: ' + issues.join('; ') + '. Set these in the hosting service Environment settings.');
   if (!['local', 'supabase'].includes(config.storageProvider)) throw new Error('Invalid STORAGE_PROVIDER');
   if (config.storageProvider === 'supabase' && (!config.supabaseUrl || !config.supabaseKey)) throw new Error('Supabase storage credentials are required');
   if (production && config.storageProvider !== 'supabase') throw new Error('Production requires durable Supabase storage');
