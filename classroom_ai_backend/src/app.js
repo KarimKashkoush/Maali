@@ -118,14 +118,14 @@ export function createApp({pool,config,recognition=recognitionClient(config),now
  }
  api.post('/students',upload.single('photo'),async(req,res)=>{
   const data=z.object({full_name:name,class_id:id}).strict().parse(req.body);const classroom=await getClass(pool,data.class_id);
-  const photo=await preparedPhoto(req);const key=await storage.put(photo.bytes);
+  const photo=req.file?await preparedPhoto(req):null;const key=photo?await storage.put(photo.bytes):null;
   let student;
   try {student=await transaction(pool,async db=>{
    const row=await one(db,'INSERT INTO students(full_name,class_id,created_at,updated_at) VALUES($1,$2,$3,$3) RETURNING *',[data.full_name,data.class_id,now()]);
    await db.query('INSERT INTO student_enrollments(student_id,class_id,enrolled_on) VALUES($1,$2,$3)',[row.id,row.class_id,localNow(now,classroom.timezone).toISODate()]);
-   await db.query("INSERT INTO student_images(student_id,type,storage_key,embedding,model) VALUES($1,'primary',$2,$3,$4)",[row.id,key,JSON.stringify(photo.embedding),photo.model]);
+   if(photo)await db.query("INSERT INTO student_images(student_id,type,storage_key,embedding,model) VALUES($1,'primary',$2,$3,$4)",[row.id,key,JSON.stringify(photo.embedding),photo.model]);
    await audit(db,req,'student.create',row.id,{class_id:row.class_id});return row;
-  });} catch(e){await storage.remove(key).catch(()=>{});throw e;}
+  });} catch(e){if(key)await storage.remove(key).catch(()=>{});throw e;}
   invalidateClass(student.class_id);res.status(201).json(await studentDto(student));
  });
  api.patch('/students/:id',async(req,res)=>{

@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 import { apiFetch, errorMessage, jsonBody } from "@/Api/client";
 import type { Classroom, Student } from "@/Api/types";
 import { buttonClass, ErrorNotice, Field, inputClass } from "../ApiStatus";
+import StudentPhotoPicker from "./StudentPhotoPicker";
 export default function StudentEditor({ classrooms, student, onSaved }: { classrooms: Classroom[]; student?: Student; onSaved?: () => Promise<void> }) {
   const router = useRouter();
+  const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -16,10 +18,7 @@ export default function StudentEditor({ classrooms, student, onSaved }: { classr
       let response: Response;
       if (student) response = await apiFetch(`/students/${student.id}`, { method: "PATCH", ...jsonBody({ full_name: String(data.get("full_name")).trim(), class_id: Number(data.get("class_id")), is_active: data.get("is_active") === "on" }) });
       else {
-        const photo = data.get("photo");
-        if (!(photo instanceof File) || !photo.size) throw new Error("أضف صورة واحدة واضحة للطالب على الأقل.");
-        if (!["image/jpeg", "image/png", "image/webp"].includes(photo.type)) throw new Error("اختر صورة JPEG أو PNG أو WebP.");
-        if (photo.size > 5 * 1024 * 1024) throw new Error("حجم الصورة يجب ألا يزيد عن 5 ميجابايت.");
+        if (photo) data.set("photo", photo);
         data.set("full_name", String(data.get("full_name")).trim());
         response = await apiFetch("/students", { method: "POST", body: data });
       }
@@ -34,8 +33,8 @@ export default function StudentEditor({ classrooms, student, onSaved }: { classr
     <ErrorNotice message={error} />{message && <p role="status" className="text-green-700">{message}</p>}
     <Field label="اسم الطالب كاملًا"><input name="full_name" required maxLength={150} defaultValue={student?.full_name ?? ""} className={inputClass} /></Field>
     <Field label="الفصل"><select name="class_id" required defaultValue={student?.class_id ?? ""} className={inputClass}><option value="">اختر الفصل</option>{classrooms.map((classroom) => <option key={classroom.id} value={classroom.id}>{classroom.classroom_name}</option>)}</select></Field>
-    {!student && <Field label="صورة واضحة للوجه (مطلوبة)"><input name="photo" type="file" accept="image/jpeg,image/png,image/webp" required className={inputClass} /><span className="mt-2 block text-xs font-normal text-gray-500">صورة تحتوي على وجه الطالب وحده، حتى 5 ميجابايت. يمكنك إضافة صور أخرى بعد الحفظ.</span></Field>}
+    {!student && <StudentPhotoPicker file={photo} onChange={setPhoto} disabled={busy} />}
     {student && <label className="flex items-center gap-2 text-sm"><input name="is_active" type="checkbox" defaultChecked={student.is_active !== false} />طالب نشط</label>}
-    <button disabled={busy || !classrooms.length} className={buttonClass}>{busy ? "جاري الحفظ..." : student ? "حفظ بيانات الطالب" : "إضافة الطالب وصورته"}</button>
+    <button disabled={busy || !classrooms.length} className={buttonClass}>{busy ? "جاري الحفظ..." : student ? "حفظ بيانات الطالب" : "إضافة الطالب"}</button>
   </form>;
 }

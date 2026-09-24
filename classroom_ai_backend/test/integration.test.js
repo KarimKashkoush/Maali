@@ -248,9 +248,27 @@ describe('Node API with PostgreSQL, HTTP, and private local image storage', { co
     rejected(await request('/schools', { method: 'POST', body: { name: `Bad timezone ${RUN_ID}`, timezone: 'Earth/Unknown' } }));
   });
 
-  test('requires a real decodable photo and rolls back failed recognition enrollment', async () => {
+  test('enrolls without a photo while recognition is offline and supports adding one later', async () => {
+    const {classroom}=await createClassroom();
+    enrollmentFailure=Object.assign(new Error('offline'),{status:503});
+    const student=await createStudent(classroom.id,{photo:null});
+    assert.equal(student.photo_url,null);
+    assert.deepEqual(student.students_images,[]);
+    at('2026-09-23T05:05:00Z');
+    succeeds(await markPresent(classroom.id,student.id));
+    assert.equal(recordFor(await daily(classroom.id),student.id).status,'present');
+    const session=succeeds(await request('/attendance/live/start',{method:'POST',body:{class_id:classroom.id}}));
+    assert.equal(session.enrolled_students,0);
+    enrollmentFailure=null;
+    const body=new FormData();body.set('photo',new Blob([image],{type:'image/jpeg'}),'photo.jpg');body.set('type','primary');
+    succeeds(await request('/students/'+student.id+'/images',{method:'POST',body}));
+    const restarted=succeeds(await request('/attendance/live/start',{method:'POST',body:{class_id:classroom.id}}));
+    assert.equal(restarted.enrolled_students,1);
+  });
+
+  test('validates an attached photo and rolls back failed recognition enrollment', async () => {
     const { classroom } = await createClassroom();
-    rejected(await request('/students', { method: 'POST', body: studentForm(classroom.id, { photo: null }) }));
+
     rejected(await request('/students', { method: 'POST', body: studentForm(classroom.id, { photo: Buffer.from('not a photograph') }) }));
     enrollmentFailure = Object.assign(new Error('Exactly one face is required'), { status: 422 });
     rejected(await request('/students', { method: 'POST', body: studentForm(classroom.id) }), [422]);
