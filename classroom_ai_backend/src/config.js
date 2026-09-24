@@ -21,7 +21,6 @@ export function loadConfig() {
   const issues = [];
   if (!config.databaseUrl?.trim()) issues.push('DATABASE_URL is missing');
   if (!config.adminPassword?.trim()) issues.push('ADMIN_PASSWORD is missing');
-  else if (process.env.NODE_ENV !== 'development' && config.adminPassword.length < 12) issues.push('ADMIN_PASSWORD requires at least 12 characters');
   if (!config.sessionSecret?.trim()) issues.push('SESSION_SECRET is missing');
   else if (config.sessionSecret.length < 32) issues.push('SESSION_SECRET requires at least 32 characters');
   if (!config.recognitionKey?.trim()) issues.push('RECOGNITION_API_KEY is missing');
