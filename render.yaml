@@ -1,0 +1,14 @@
+# First deploy only recognition to verify the free instance can build and run dlib.
+services:
+  - type: web
+    name: maali-recognition
+    runtime: docker
+    plan: free
+    dockerfilePath: ./ClassroomAI/recognition_service/Dockerfile
+    dockerContext: ./ClassroomAI
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8001"
+      - key: RECOGNITION_API_KEY
+        generateValue: true
