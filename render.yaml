@@ -1,4 +1,4 @@
-# First deploy only recognition to verify the free instance can build and run dlib.
+# Trial services; frontend is added after the API and Supabase are verified.
 services:
   - type: web
     name: maali-recognition
@@ -12,3 +12,38 @@ services:
         value: "8001"
       - key: RECOGNITION_API_KEY
         generateValue: true
+  - type: web
+    name: maali-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./classroom_ai_backend/Dockerfile
+    dockerContext: ./classroom_ai_backend
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: STORAGE_PROVIDER
+        value: supabase
+      - key: STORAGE_BUCKET
+        value: student-images
+      - key: RECOGNITION_URL
+        value: https://maali-recognition.onrender.com
+      - key: RECOGNITION_API_KEY
+        fromService:
+          type: web
+          name: maali-recognition
+          envVarKey: RECOGNITION_API_KEY
