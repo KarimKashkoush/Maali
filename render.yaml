@@ -1,4 +1,4 @@
-# Trial services; frontend is added after the API and Supabase are verified.
+# Free trial services; PostgreSQL and private image storage use Supabase.
 services:
   - type: web
     name: maali-recognition
@@ -47,3 +47,17 @@ services:
           type: web
           name: maali-recognition
           envVarKey: RECOGNITION_API_KEY
+  - type: web
+    name: maali-frontend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./classroom_ai_frontend/Dockerfile
+    dockerContext: ./classroom_ai_frontend
+    healthCheckPath: /login
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: CLASSROOM_API_URL
+        value: https://maali-api-zuka.onrender.com/api/v1

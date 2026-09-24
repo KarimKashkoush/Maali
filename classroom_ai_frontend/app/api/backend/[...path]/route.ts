@@ -29,7 +29,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
     return Response.json({ message: "مسار غير صالح" }, { status: 400 });
   }
   const origin = request.headers.get("origin");
-  if (methodsWithBody.has(request.method) && origin && origin !== (process.env.APP_ORIGIN ?? request.nextUrl.origin)) {
+  if (methodsWithBody.has(request.method) && origin && origin !== (process.env.APP_ORIGIN ?? process.env.RENDER_EXTERNAL_URL ?? request.nextUrl.origin)) {
     return Response.json({ message: "مصدر الطلب غير مسموح" }, { status: 403 });
   }
   const base = process.env.CLASSROOM_API_URL ?? "http://127.0.0.1:4000/api/v1";
