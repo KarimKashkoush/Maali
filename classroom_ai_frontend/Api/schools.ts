@@ -1,0 +1,1 @@
+export { getSchools } from "./getSchools";

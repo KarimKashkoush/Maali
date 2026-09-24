@@ -1,0 +1,12 @@
+export type Statistics = { total_students: number; total_present: number; total_absent: number; total_late?: number; total_pending?: number; total_classes: number; active_classes: number; attendance_rate: number };
+export type Stage = { id: number; school_id: number; name: string; stage_name?: string; classrooms: Classroom[] };
+export const schoolTypeLabels = { boys: "بنين", girls: "بنات", kindergarten: "روضة" };
+export const curriculumLabels = { national: "وطني", international: "عالمي" };
+export type School = { school_type?: keyof typeof schoolTypeLabels | null; curriculum?: keyof typeof curriculumLabels | null; id: number; name: string; school_name?: string; timezone: string; stage: Stage[]; school_statistics?: Statistics };
+export type Classroom = { id: number; school_id: number; stage_id: number | null; classroom_name: string; attendance_start: string; grace_minutes: number; absence_after_minutes: number; attendance_end: string; weekdays: number[]; students?: Student[]; classroom_statistics_classroom_id_fkey?: Statistics };
+export type StudentImage = { id: number; student_id: number; type: string; image_url?: string; is_primary?: boolean; created_at?: string };
+export type Student = { id: number; full_name: string; class_id: number; is_active: boolean; classrooms?: Classroom; students_images?: StudentImage[]; attendance_records?: DailyRecord[] };
+export type AttendanceStatus = "pending" | "present" | "late" | "absent" | "not_scheduled";
+export type DailyRecord = { student_id: number; external_student_id: number; student_name?: string; attendance_date?: string; status: AttendanceStatus; check_in_at: string | null; late_minutes: number; recognition_confidence?: number | null };
+export type DailyAttendance = { session_id: number | null; attendance_date: string; timezone: string; roll_call_started_at: string | null; roll_call_completed_at: string | null; is_school_day: boolean; schedule: Pick<Classroom, "attendance_start" | "grace_minutes" | "absence_after_minutes" | "attendance_end">; records: DailyRecord[] };
+export const attendanceLabels: Record<AttendanceStatus, string> = { pending: "بانتظار الحضور", present: "حاضر", late: "متأخر", absent: "غائب", not_scheduled: "يوم إجازة" };

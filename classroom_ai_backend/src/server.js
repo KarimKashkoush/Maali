@@ -1,0 +1,12 @@
+import pg from 'pg';
+import {loadConfig} from './config.js';
+import {migrate} from './migrate.js';
+import {createApp} from './app.js';
+const config=loadConfig();
+const pool=new pg.Pool({connectionString:config.databaseUrl,max:5,idleTimeoutMillis:30000,connectionTimeoutMillis:10000});
+pool.on('error',error=>console.error('Database pool error',error.code));
+await migrate(pool);
+const app=createApp({pool,config});
+const server=app.listen(config.port,()=>console.log(`Classroom Node API ready on port ${config.port}`));
+server.requestTimeout=60000;
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>server.close(async()=>{await pool.end();process.exit(0);}));

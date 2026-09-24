@@ -1,0 +1,13 @@
+-- The Node API uses a direct PostgreSQL connection. Never expose school,
+-- biometric, authentication or attendance tables through Supabase PostgREST.
+ALTER TABLE schools ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE classrooms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_enrollments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_days ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auth_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE schema_migrations ENABLE ROW LEVEL SECURITY;

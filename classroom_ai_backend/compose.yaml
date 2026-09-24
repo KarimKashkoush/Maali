@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: classroom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: classroom_ai
+    volumes:
+      - classroom_pg:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U classroom -d classroom_ai]
+      interval: 5s
+      retries: 10
+  recognition:
+    build:
+      context: ../ClassroomAI
+      dockerfile: recognition_service/Dockerfile
+    environment:
+      RECOGNITION_API_KEY: ${RECOGNITION_API_KEY:?Set RECOGNITION_API_KEY}
+    expose: [8001]
+  api:
+    build: .
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://classroom:${POSTGRES_PASSWORD}@postgres:5432/classroom_ai
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET}
+      RECOGNITION_URL: http://recognition:8001
+      RECOGNITION_API_KEY: ${RECOGNITION_API_KEY}
+      STORAGE_PROVIDER: local
+      UPLOAD_DIR: /app/uploads
+    ports: ["127.0.0.1:4000:4000"]
+    volumes: ["classroom_images:/app/uploads"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      recognition:
+        condition: service_started
+  frontend:
+    build: ../classroom_ai_frontend
+    environment:
+      CLASSROOM_API_URL: http://api:4000/api/v1
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: [api]
+volumes:
+  classroom_pg:
+  classroom_images:
