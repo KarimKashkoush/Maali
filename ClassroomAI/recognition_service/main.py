@@ -9,6 +9,7 @@ import math
 import os
 import secrets
 import warnings
+from time import perf_counter
 from contextlib import asynccontextmanager
 from io import BytesIO
 from typing import Callable
@@ -178,7 +179,11 @@ def parse_candidates(raw: str) -> list[tuple[int, list[list[float]]]]:
 
 
 def detect(rgb: np.ndarray):
-    locations = face_recognition.face_locations(rgb, number_of_times_to_upsample=1, model="hog")
+    return face_recognition.face_locations(rgb, number_of_times_to_upsample=1, model="hog")
+
+
+def detect_for_enrollment(rgb: np.ndarray):
+    locations = detect(rgb)
     # A bounded second pass helps locate smaller faces in HD inputs. Never
     # enlarge the identity crop or relax the minimum useful face size.
     if not locations and max(rgb.shape[:2]) <= 1280:
@@ -196,7 +201,7 @@ def valid_encoding(encoding) -> bool:
 
 def enroll_image(data: bytes):
     rgb, _, _ = decode_image(data)
-    locations = detect(rgb)
+    locations = detect_for_enrollment(rgb)
     if len(locations) != 1:
         raise HTTPException(422, "Enrollment requires exactly one clearly visible face")
     top, right, bottom, left = locations[0]
@@ -225,21 +230,26 @@ def match_encoding(encoding, candidates):
 
 
 def recognize_image(data: bytes, candidates):
+    started = perf_counter()
     rgb, width, height = decode_image(data)
     locations = detect(rgb)
     if len(locations) > MAX_FRAME_FACES:
         raise HTTPException(422, "Too many faces; submit a smaller group")
     detections = []
+    eligible = [index for index, (top, right, bottom, left) in enumerate(locations)
+                if min(bottom - top, right - left) >= MIN_FACE_SIDE]
+    vectors = encode(rgb, [locations[index] for index in eligible]) if eligible and candidates else []
+    # Never shift identities between boxes if the encoder returns fewer vectors.
+    encoded = dict(zip(eligible, vectors)) if len(vectors) == len(eligible) else {}
     scale_x, scale_y = width / rgb.shape[1], height / rgb.shape[0]
-    for location in locations:
+    for index, location in enumerate(locations):
         top, right, bottom, left = location
         reason = "face_too_small"
         match = (False, None, 0.0, None)
         if min(bottom - top, right - left) >= MIN_FACE_SIDE:
             reason = "no_clear_match"
-            encodings = encode(rgb, [location])
-            if len(encodings) == 1:
-                match = match_encoding(encodings[0], candidates)
+            if index in encoded:
+                match = match_encoding(encoded[index], candidates)
         matched, student_id, confidence, distance = match
         detections.append({
             "top": max(0, min(height, round(top * scale_y))),
@@ -256,7 +266,8 @@ def recognize_image(data: bytes, candidates):
     for item in detections:
         if item["student_id"] in duplicate_ids:
             item.update(matched=False, student_id=None, confidence=0.0, reason="duplicate_match")
-    return {"frame_width": width, "frame_height": height, "detections": detections}
+    return {"frame_width": width, "frame_height": height, "detections": detections,
+            "processing_ms": round((perf_counter() - started) * 1000)}
 
 
 async def cpu_job(function, *args):

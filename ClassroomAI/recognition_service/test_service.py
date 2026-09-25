@@ -134,7 +134,9 @@ def test_small_face_rejected_for_enrollment(client, monkeypatch):
 def test_recognition_contract(client, single_face):
     response = recognize(client, [sample(distance=0.2)])
     assert response.status_code == 200
-    assert response.json() == {"frame_width": 160, "frame_height": 120, "detections": [
+    body = response.json()
+    assert body.pop("processing_ms") >= 0
+    assert body == {"frame_width": 160, "frame_height": 120, "detections": [
         {"top": 10, "right": 100, "bottom": 100, "left": 10, "matched": True,
          "student_id": 1, "confidence": 0.8, "distance": 0.2, "reason": None}]}
 
@@ -247,10 +249,10 @@ def test_hd_detection_retry_is_bounded(monkeypatch):
         calls.append(number_of_times_to_upsample)
         return [BOX] if number_of_times_to_upsample == 2 else []
     monkeypatch.setattr(service.face_recognition, "face_locations", detector)
-    assert service.detect(np.zeros((720, 1280, 3), dtype=np.uint8)) == [BOX]
+    assert service.detect_for_enrollment(np.zeros((720, 1280, 3), dtype=np.uint8)) == [BOX]
     assert calls == [1, 2]
     calls.clear()
-    assert service.detect(np.zeros((1080, 1920, 3), dtype=np.uint8)) == []
+    assert service.detect_for_enrollment(np.zeros((1080, 1920, 3), dtype=np.uint8)) == []
     assert calls == [1]
 
 
@@ -268,3 +270,33 @@ def test_small_face_reports_reason_without_matching(client, monkeypatch):
     result = recognize(client).json()["detections"][0]
     assert result["reason"] == "face_too_small"
     assert result["matched"] is False and result["student_id"] is None
+
+
+def test_live_detection_never_retries_empty_frame(monkeypatch):
+    calls = []
+    def detector(rgb, number_of_times_to_upsample, model):
+        calls.append(number_of_times_to_upsample)
+        return []
+    monkeypatch.setattr(service.face_recognition, "face_locations", detector)
+    assert service.detect(np.zeros((720, 1280, 3), dtype=np.uint8)) == []
+    assert calls == [1]
+
+
+def test_live_encodes_faces_in_one_batch(client, monkeypatch):
+    boxes = [BOX, (10, 155, 100, 65)]
+    monkeypatch.setattr(service, "detect", lambda rgb: boxes)
+    calls = []
+    def encoder(rgb, locations):
+        calls.append(locations)
+        return [np.zeros(128), np.ones(128)]
+    monkeypatch.setattr(service, "encode", encoder)
+    result = recognize(client).json()
+    assert calls == [boxes]
+    assert result["detections"][0]["student_id"] == 1
+    assert result["detections"][1]["matched"] is False
+
+
+def test_partial_encoder_result_does_not_assign_wrong_identity(client, monkeypatch):
+    monkeypatch.setattr(service, "detect", lambda rgb: [BOX, (10, 155, 100, 65)])
+    monkeypatch.setattr(service, "encode", lambda rgb, boxes: [np.zeros(128)])
+    assert all(not d["matched"] for d in recognize(client).json()["detections"])
